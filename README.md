@@ -1,45 +1,122 @@
 # Site Reporter MVP
 
-Minimal FastAPI + Streamlit project for experimenting with audio-first construction site reports.
+Full-stack FastAPI + Streamlit prototype that records French voice memos directly in the browser, transcribes them with Azure OpenAI, infers the best chantier report template, and drafts a structured summary that supervisors can edit or auto-generate.
 
-## Project Layout
+## Stack & Workflow Highlights
+
+- **FastAPI backend** with async routers, Pydantic schemas, and Azure OpenAI clients (GPT-4o-mini transcription + Mistral-small field extraction).
+- **Streamlit frontend** that manages session state for two modes: *Avec validation humaine* (step-by-step editing) and *Entièrement automatique* (fire-and-forget).
+- **Live audio capture only** via `st.audio_input` to keep UX focused; everything assumes French input (`fr`) end-to-end.
+- **Clean architecture**: dedicated `services/`, `models/`, and `routers/` modules plus matching Streamlit helpers.
+
+## Repository Layout
 
 ```
-backend/   FastAPI service (REST API, OpenAI STT placeholder)
-frontend/  Streamlit UI (multi-step workflow + session state)
+site-reporter/
+├── backend/
+│   ├── app/
+│   │   ├── core/          # Settings & env loading
+│   │   ├── models/        # Pydantic schemas
+│   │   ├── routers/       # FastAPI routers
+│   │   └── services/      # STT, LLM, template, report helpers
+│   ├── pyproject.toml
+│   └── .env.example
+├── frontend/
+│   ├── app.py             # Streamlit UI (FR only)
+│   ├── services/api.py    # REST client wrapper
+│   └── pyproject.toml
+├── tests/                 # Integration fixtures + future unit tests
+└── PROJECT_CONTEXT.md     # Extended design notes
 ```
 
 ## Prerequisites
 
-- Python 3.11+ installed locally.
-- [uv](https://github.com/astral-sh/uv) available on your PATH.
+1. Python **3.11+**
+2. [uv](https://github.com/astral-sh/uv) ≥ 0.4.0 on your PATH
+3. Azure OpenAI resources for GPT-4o-mini transcription and Mistral-small chat completions
 
-## Environment Variables
+## Configure Environment Variables
 
-1. Copy `backend/.env.example` to `backend/.env` and add your `OPENAI_API_KEY` if you plan to hit the real GPT-4o-mini transcription model. Without a key the backend will fall back to a deterministic stub.
-2. Copy `frontend/.env.example` to `frontend/.env` and point `BACKEND_URL` at your FastAPI instance (defaults to `http://localhost:8000`).
-
-## Run the Backend
+### Backend (`backend/.env`)
 
 ```bash
-uv run --project backend uvicorn backend.app.main:app --reload
+cp backend/.env.example backend/.env
 ```
 
-The service exposes its workflow routes under `/api/*` plus a `/health` endpoint for readiness probes.
+Fill the placeholders with your Azure credentials:
 
-## Run the Frontend
+| Variable | Purpose |
+| --- | --- |
+| `AZURE_OPENAI_KEY` | Primary key for your Azure OpenAI resource |
+| `AZURE_ENDPOINT` | Base endpoint (e.g., `https://xxxx.openai.azure.com`) |
+| `STT_DEPLOYMENT_NAME`, `STT_API_VERSION` | GPT-4o-mini transcription deployment metadata |
+| `MISTRAL_DEPLOYMENT_NAME`, `MISTRAL_API_VERSION` | Mistral-small deployment metadata |
+| `DEFAULT_LANGUAGE` | Leave at `fr` to keep the workflow French-only |
+| `DEFAULT_TEMPLATE` | Fallback template (`rapport_generique`) |
+
+### Frontend (`frontend/.env`)
+
+Create a `.env` file next to `frontend/app.py` (no example file is tracked):
+
+```env
+BACKEND_URL=http://localhost:8000
+```
+
+Point it at whatever host/port runs FastAPI (Render, Azure App Service, etc.).
+
+## Install Dependencies with uv
+
+Each side of the stack manages its own virtual environment:
 
 ```bash
-uv run --project frontend streamlit run frontend/app.py
+cd backend
+uv sync          # installs backend deps into .venv using pyproject + uv.lock
+
+cd ../frontend
+uv sync
 ```
 
-The Streamlit dashboard lets you:
+`uv sync` only needs to run again when `pyproject.toml` changes.
 
-1. Record or upload audio, then call the transcription endpoint (human-in-loop mode).
-2. Trigger template inference, edit the resulting table, and generate a draft report.
-3. Switch to automated mode, where the backend runs transcription → inference → report in a single call.
+## Run the Apps
 
-## Notes
+### Backend API
 
-- Both sub-projects are standard `pyproject.toml` applications, so you can install dependencies or open shells with `uv pip install` / `uv run --project ...`.
-- Report creation and PDF generation are placeholders; extend `backend/app/services/report.py` to emit richer formats when ready.
+```bash
+cd backend
+uv run uvicorn app.main:app --reload
+```
+
+The API lives under `http://127.0.0.1:8000/api/*` with endpoints for transcription, template inference, report generation, and an all-in-one pipeline.
+
+### Streamlit Frontend
+
+```bash
+cd frontend
+uv run streamlit run app.py
+```
+
+Open `http://localhost:8501` and use the microphone widget in the sidebar:
+
+1. **Avec validation humaine** – record audio → transcribe → infer template → tweak fields → generate report.
+2. **Entièrement automatique** – record audio → click *Pipeline automatique* to let the backend do every step.
+
+All UI copy, prompts, and templates are in French, and only live recordings are accepted to keep transcripts consistent.
+
+## Testing & Troubleshooting
+
+- Basic integration scenarios (including sample audio fixtures) live under `tests/`. Run them from the backend environment:  
+  ```bash
+  cd backend
+  uv run pytest ../tests
+  ```
+- If `st.audio_input` is unavailable, upgrade Streamlit (`uv pip install -U streamlit`) because recording is mandatory.
+- When running locally without valid Azure credentials, mock the services or stub responses inside `backend/app/services/`.
+
+## Next Steps
+
+- Add PDF export in `backend/app/services/report.py`.
+- Persist reports plus transcripts for audit trails.
+- Harden error handling + logging before field pilots.
+
+Happy reporting! 🏗️
