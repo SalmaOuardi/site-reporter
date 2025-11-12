@@ -1,31 +1,35 @@
-"""Streamlit frontend for the construction site report generator MVP."""
+"""Interface Streamlit pour le générateur de rapports de chantier MVP."""
 
 from __future__ import annotations
 
 import base64
 from typing import Dict, List, Optional
 
-import pandas as pd
 import streamlit as st
 
 from services.api import BackendClient
 
-st.set_page_config(page_title="Site Reporter MVP", layout="wide")
+st.set_page_config(page_title="Rapporteur de Chantier", layout="wide", page_icon="🏗️")
 
 client = BackendClient()
+
+DEFAULT_LANGUAGE = "fr"
+MANUAL_MODE = "Avec validation humaine"
+AUTO_MODE = "Entièrement automatique"
+TRANSCRIPT_WIDGET_KEY = "transcript_editor"
 
 
 def init_state() -> None:
     """Ensure all workflow keys exist in session_state."""
 
     defaults = {
-        "mode": "Human in the loop",
+        "mode": MANUAL_MODE,
         "transcript": "",
         "template_type": "",
         "fields": {},
         "report_text": "",
         "audio_bytes": None,
-        "language": None,
+        TRANSCRIPT_WIDGET_KEY: "",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -34,7 +38,7 @@ def init_state() -> None:
 def reset_workflow() -> None:
     """Clear all derived values while keeping the selected mode."""
 
-    preserved_mode = st.session_state.get("mode", "Human in the loop")
+    preserved_mode = st.session_state.get("mode", MANUAL_MODE)
     st.session_state.clear()
     init_state()
     st.session_state["mode"] = preserved_mode
@@ -49,49 +53,55 @@ def encode_audio(audio_bytes: bytes) -> str:
 def data_editor_rows(fields: Dict[str, str]) -> List[Dict[str, str]]:
     """Convert a dict into rows consumable by st.data_editor."""
 
-    return [{"Field": key, "Value": value} for key, value in fields.items()]
+    return [{"Champ": key, "Valeur": value} for key, value in fields.items()]
+
+
+def set_transcript_state(value: str) -> None:
+    """Keep transcript and widget state synchronized."""
+
+    st.session_state["transcript"] = value
+    st.session_state[TRANSCRIPT_WIDGET_KEY] = value
 
 
 def capture_audio() -> Optional[bytes]:
-    """Handle either direct recording or manual uploads."""
+    """Capture live audio recordings only."""
 
-    audio_bytes: Optional[bytes] = None
-    audio_input = None
+    if not hasattr(st, "audio_input"):
+        st.sidebar.error(
+            "La version actuelle de Streamlit ne supporte pas l'enregistrement audio. "
+            "Veuillez mettre à jour Streamlit."
+        )
+        return None
 
-    if hasattr(st, "audio_input"):
-        audio_input = st.sidebar.audio_input("Record audio", key="record_audio")
-
+    audio_input = st.sidebar.audio_input("🎤 Enregistrer un mémo vocal", key="record_audio")
     if audio_input is not None:
         audio_bytes = audio_input.getvalue()
-        st.sidebar.success("Live recording captured.")
-    else:
-        upload = st.sidebar.file_uploader(
-            "Upload audio (mp3, wav, m4a)",
-            type=["mp3", "wav", "m4a"],
-            key="upload_audio",
-        )
-        if upload is not None:
-            audio_bytes = upload.read()
-            st.sidebar.success(f"Uploaded {upload.name}.")
-
-    if audio_bytes:
+        st.sidebar.success("✅ Enregistrement capturé.")
         st.sidebar.audio(audio_bytes, format="audio/wav")
+        return audio_bytes
 
-    return audio_bytes
+    stored_audio = st.session_state.get("audio_bytes")
+    if stored_audio:
+        st.sidebar.audio(stored_audio, format="audio/wav")
+        st.sidebar.caption("Lecture du dernier enregistrement.")
+    else:
+        st.sidebar.info("Réalisez un enregistrement pour activer les étapes suivantes.")
+    return None
 
 
-def handle_transcription(audio_bytes: bytes, language: Optional[str]) -> None:
+def handle_transcription(audio_bytes: bytes) -> None:
     """Call the backend transcription endpoint."""
 
     encoded = encode_audio(audio_bytes)
     try:
-        with st.spinner("Transcribing with GPT-4o-mini..."):
-            response = client.transcribe(encoded, language=language)
+        with st.spinner("🔄 Transcription en cours avec GPT-4o-mini..."):
+            response = client.transcribe(encoded, language=DEFAULT_LANGUAGE)
     except Exception as exc:  # noqa: BLE001 - surface network issues in the UI
-        st.error(f"Transcription failed: {exc}")
+        st.error(f"❌ Échec de la transcription: {exc}")
         return
-    st.session_state["transcript"] = response["text"]
-    st.toast("Transcript received.", icon="✏️")
+    set_transcript_state(response["text"])
+    st.toast("✅ Transcription reçue.", icon="✏️")
+    st.rerun()  # Force UI refresh to show transcript
 
 
 def handle_template_inference() -> None:
@@ -99,18 +109,19 @@ def handle_template_inference() -> None:
 
     transcript = st.session_state.get("transcript", "").strip()
     if not transcript:
-        st.warning("Please generate or paste a transcript first.")
+        st.warning("⚠️ Veuillez d'abord générer ou coller une transcription.")
         return
 
     try:
-        with st.spinner("Inferring template..."):
+        with st.spinner("🔄 Analyse du type de rapport..."):
             response = client.infer_template(transcript)
     except Exception as exc:  # noqa: BLE001
-        st.error(f"Template inference failed: {exc}")
+        st.error(f"❌ Échec de l'analyse: {exc}")
         return
     st.session_state["template_type"] = response["template_type"]
     st.session_state["fields"] = response["fields"]
-    st.toast(f"Template inferred: {response['template_type']}", icon="🧩")
+    st.toast(f"✅ Template détecté: {response['template_type']}", icon="🧩")
+    st.rerun()  # Force UI refresh to show fields table
 
 
 def handle_report_generation() -> None:
@@ -119,154 +130,159 @@ def handle_report_generation() -> None:
     template_type = st.session_state.get("template_type")
     fields = st.session_state.get("fields", {})
     if not template_type or not fields:
-        st.warning("Please infer a template and edit the fields before generating.")
+        st.warning("⚠️ Veuillez analyser le template et modifier les champs avant de générer.")
         return
 
     try:
-        with st.spinner("Generating report draft..."):
+        with st.spinner("🔄 Génération du rapport..."):
             response = client.generate_report(
                 template_type=template_type,
                 fields=fields,
                 transcript=st.session_state.get("transcript"),
             )
     except Exception as exc:  # noqa: BLE001
-        st.error(f"Report generation failed: {exc}")
+        st.error(f"❌ Échec de la génération: {exc}")
         return
     st.session_state["report_text"] = response["report_text"]
-    st.toast("Report ready for review.", icon="📄")
+    st.toast("✅ Rapport prêt pour révision.", icon="📄")
+    st.rerun()  # Force UI refresh to show report
 
 
-def handle_auto_pipeline(audio_bytes: bytes, language: Optional[str]) -> None:
-    """Call the one-shot pipeline for the fully automated path."""
+def handle_auto_pipeline(audio_bytes: bytes) -> None:
+    """Run the entire workflow in a single backend call."""
 
     encoded = encode_audio(audio_bytes)
     try:
-        with st.spinner("Running automated pipeline..."):
-            response = client.run_auto_pipeline(encoded, language=language)
+        with st.spinner("🔄 Pipeline automatique en cours..."):
+            response = client.run_auto_pipeline(encoded, language=DEFAULT_LANGUAGE)
     except Exception as exc:  # noqa: BLE001
-        st.error(f"Automated pipeline failed: {exc}")
+        st.error(f"❌ Échec du pipeline: {exc}")
         return
 
-    st.session_state["transcript"] = response["text"]
+    set_transcript_state(response["text"])
     st.session_state["template_type"] = response["template_type"]
     st.session_state["fields"] = response["fields"]
     st.session_state["report_text"] = response["report_text"]
-    st.toast("Automatic report created.", icon="⚡️")
+    st.toast("✅ Rapport automatique créé.", icon="⚡️")
+    st.rerun()  # Force UI refresh to show all results
 
 
-def render_fields_editor() -> None:
-    """Render editable table for the structured template fields."""
+def rows_to_fields_dict(rows: List[Dict[str, str]]) -> Dict[str, str]:
+    """Convert data_editor rows back to a dict."""
 
-    fields = st.session_state.get("fields", {})
-    if not fields:
-        return
+    return {row["Champ"]: row["Valeur"] for row in rows}
 
-    st.markdown(f"**Template:** `{st.session_state.get('template_type', 'n/a')}`")
-    edited_rows = st.data_editor(
-        pd.DataFrame(data_editor_rows(fields)),
-        num_rows="dynamic",
-        hide_index=True,
-        key="fields_editor",
+
+def show_report_preview(report_text: str) -> None:
+    """Render the final report in a code block."""
+
+    st.subheader("📄 Rapport Généré")
+    st.code(report_text, language="text")
+
+
+def render_manual_workflow() -> None:
+    """Render the human-in-the-loop workflow."""
+
+    st.subheader("📝 Étape 1: Enregistrer et Transcrire")
+    st.caption("Enregistrez un mémo vocal en français, puis lancez la transcription.")
+
+    stored_audio = st.session_state.get("audio_bytes")
+    if st.button(
+        "📝 Transcrire l'audio",
+        disabled=stored_audio is None,
+        use_container_width=True,
+    ):
+        if stored_audio is None:
+            st.warning("⚠️ Veuillez d'abord enregistrer un mémo vocal.")
+        else:
+            handle_transcription(stored_audio)
+
+    new_transcript = st.text_area(
+        "Transcription (modifiable):",
+        height=160,
+        placeholder="La transcription apparaîtra ici après l'étape 1.",
+        key=TRANSCRIPT_WIDGET_KEY,
     )
-    cleaned = {
-        str(row["Field"]).strip(): str(row["Value"]).strip()
-        for _, row in edited_rows.iterrows()
-        if str(row["Field"]).strip()
-    }
-    st.session_state["fields"] = cleaned
+    if new_transcript != st.session_state.get("transcript"):
+        st.session_state["transcript"] = new_transcript
+
+    if st.session_state.get("transcript"):
+        st.subheader("🔍 Étape 2: Template et Données Structurées")
+        st.caption("Détectez automatiquement le bon template puis ajustez les champs.")
+        if st.button("🔍 Analyser le type de rapport", use_container_width=True):
+            handle_template_inference()
+
+        if st.session_state.get("template_type"):
+            st.info(f"**Template détecté:** {st.session_state['template_type']}")
+            rows = data_editor_rows(st.session_state.get("fields", {}))
+            edited = st.data_editor(
+                rows,
+                use_container_width=True,
+                num_rows="dynamic",
+                key="fields_editor",
+            )
+            st.session_state["fields"] = rows_to_fields_dict(edited)
+
+    if st.session_state.get("fields"):
+        st.subheader("📄 Étape 3: Générer le Rapport")
+        if st.button("📄 Générer le rapport", use_container_width=True):
+            handle_report_generation()
 
 
-def render_report_output() -> None:
-    """Display the generated report if available."""
+def render_auto_workflow() -> None:
+    """Render the fully automated workflow."""
 
-    report = st.session_state.get("report_text")
-    if not report:
-        return
+    st.subheader("⚡ Pipeline Automatique")
+    st.markdown("Ce mode enchaîne transcription → analyse → génération sans validation.")
 
-    st.subheader("Generated Report")
-    st.text_area("Report preview", value=report, height=220, label_visibility="collapsed")
+    stored_audio = st.session_state.get("audio_bytes")
+    if st.button(
+        "⚡ Lancer le pipeline automatique",
+        disabled=stored_audio is None,
+        use_container_width=True,
+    ):
+        if stored_audio is None:
+            st.warning("⚠️ Veuillez d'abord enregistrer un mémo vocal.")
+        else:
+            handle_auto_pipeline(stored_audio)
 
 
 def main() -> None:
-    """Wire all UI sections together."""
+    """Application entry point."""
 
     init_state()
 
-    st.title("Construction Site Report Generator")
-    st.caption("FastAPI backend · Streamlit frontend · OpenAI transcription placeholder")
-
-    st.session_state["mode"] = st.radio(
-        "Choose workflow",
-        options=["Human in the loop", "Fully automatic"],
-        horizontal=True,
-        index=0,
-    )
+    st.title("🏗️ Générateur de Rapports de Chantier")
+    st.markdown("*MVP - Audio vers rapport structuré*")
+    st.divider()
 
     with st.sidebar:
-        st.header("Workflow Controls")
-        selected_language = st.selectbox(
-            "Language hint (optional)",
-            ["auto", "en", "es", "fr"],
-            index=0,
-        )
-        st.session_state["language"] = None if selected_language == "auto" else selected_language
-        if st.button("Reset workflow", type="secondary"):
+        st.header("⚙️ Contrôles")
+        st.caption("Langue cible: Français (fixe)")
+        st.caption("L'enregistreur du navigateur est requis.")
+        if st.button("🔄 Réinitialiser", type="secondary", use_container_width=True):
             reset_workflow()
+
+    mode_choice = st.radio(
+        "Choisissez le mode de travail:",
+        [MANUAL_MODE, AUTO_MODE],
+        index=0 if st.session_state["mode"] == MANUAL_MODE else 1,
+        horizontal=True,
+    )
+    st.session_state["mode"] = mode_choice
 
     audio_bytes = capture_audio()
     if audio_bytes:
         st.session_state["audio_bytes"] = audio_bytes
 
-    mode = st.session_state["mode"]
-
-    if mode == "Human in the loop":
-        st.subheader("1. Record and Transcribe")
-        st.write("Record audio in the sidebar and transcribe it when ready.")
-        if st.button("Transcribe Audio", disabled=audio_bytes is None):
-            if not audio_bytes:
-                st.warning("Please record or upload audio first.")
-            else:
-                handle_transcription(audio_bytes, st.session_state.get("language"))
-
-        if st.session_state.get("transcript"):
-            transcript = st.text_area(
-                "Transcript",
-                value=st.session_state["transcript"],
-                height=150,
-            )
-            st.session_state["transcript"] = transcript
-
-            st.subheader("2. Template & Structured Data")
-            if st.button("Infer Template"):
-                handle_template_inference()
-
-            render_fields_editor()
-
-            st.subheader("3. Generate Report")
-            if st.button("Generate Report", disabled=not st.session_state.get("fields")):
-                handle_report_generation()
-
-            render_report_output()
+    if st.session_state["mode"] == MANUAL_MODE:
+        render_manual_workflow()
     else:
-        st.subheader("Automated Pipeline")
-        st.write(
-            "The backend will transcribe the audio, infer a template, populate fields, "
-            "and draft a report automatically."
-        )
-        if st.button("Run automated pipeline", disabled=audio_bytes is None):
-            if not audio_bytes:
-                st.warning("Please record or upload audio first.")
-            else:
-                handle_auto_pipeline(audio_bytes, st.session_state.get("language"))
+        render_auto_workflow()
 
-        if st.session_state.get("transcript"):
-            st.text_area(
-                "Transcript",
-                value=st.session_state["transcript"],
-                height=150,
-            )
-        render_fields_editor()
-        render_report_output()
+    # Show report if available
+    if st.session_state.get("report_text"):
+        show_report_preview(st.session_state["report_text"])
 
 
 if __name__ == "__main__":

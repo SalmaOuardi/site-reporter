@@ -40,7 +40,7 @@ async def infer_template_route(
             detail="Transcript cannot be empty.",
         )
 
-    template, fields = infer_template(transcript)
+    template, fields = await infer_template(transcript)
     return TemplateInferenceResponse(template_type=template, fields=fields)
 
 
@@ -65,7 +65,7 @@ async def auto_pipeline(payload: AutoPipelineRequest) -> AutoPipelineResponse:
     """Run the full workflow without human intervention."""
 
     text = await transcribe_audio(payload.audio_b64, payload.language)
-    template, fields = infer_template(text)
+    template, fields = await infer_template(text)
     report_text = generate_report(template, fields, text)
     return AutoPipelineResponse(
         text=text, template_type=template, fields=fields, report_text=report_text
