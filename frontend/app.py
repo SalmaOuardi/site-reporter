@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import streamlit as st
 
@@ -61,6 +61,17 @@ def set_transcript_state(value: str) -> None:
 
     st.session_state["transcript"] = value
     st.session_state[TRANSCRIPT_WIDGET_KEY] = value
+
+
+def audio_trigger_button(label: str, callback: Callable[[bytes], None]) -> None:
+    """Render a button that requires a recorded audio clip."""
+
+    stored_audio = st.session_state.get("audio_bytes")
+    if st.button(label, disabled=stored_audio is None, use_container_width=True):
+        if stored_audio is None:
+            st.warning("⚠️ Veuillez d'abord enregistrer un mémo vocal.")
+        else:
+            callback(stored_audio)
 
 
 def capture_audio() -> Optional[bytes]:
@@ -186,16 +197,7 @@ def render_manual_workflow() -> None:
     st.subheader("📝 Étape 1: Enregistrer et Transcrire")
     st.caption("Enregistrez un mémo vocal en français, puis lancez la transcription.")
 
-    stored_audio = st.session_state.get("audio_bytes")
-    if st.button(
-        "📝 Transcrire l'audio",
-        disabled=stored_audio is None,
-        use_container_width=True,
-    ):
-        if stored_audio is None:
-            st.warning("⚠️ Veuillez d'abord enregistrer un mémo vocal.")
-        else:
-            handle_transcription(stored_audio)
+    audio_trigger_button("📝 Transcrire l'audio", handle_transcription)
 
     new_transcript = st.text_area(
         "Transcription (modifiable):",
@@ -235,16 +237,7 @@ def render_auto_workflow() -> None:
     st.subheader("⚡ Pipeline Automatique")
     st.markdown("Ce mode enchaîne transcription → analyse → génération sans validation.")
 
-    stored_audio = st.session_state.get("audio_bytes")
-    if st.button(
-        "⚡ Lancer le pipeline automatique",
-        disabled=stored_audio is None,
-        use_container_width=True,
-    ):
-        if stored_audio is None:
-            st.warning("⚠️ Veuillez d'abord enregistrer un mémo vocal.")
-        else:
-            handle_auto_pipeline(stored_audio)
+    audio_trigger_button("⚡ Lancer le pipeline automatique", handle_auto_pipeline)
 
 
 def main() -> None:
