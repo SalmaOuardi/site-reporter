@@ -8,7 +8,7 @@ from typing import Dict, Tuple
 from .llm import chat_completion
 from ..core.config import get_settings
 
-
+#TODO: Improve template inference with more advanced NLP techniques or an llm call if needed.
 async def infer_template(transcript: str) -> Tuple[str, Dict[str, str]]:
     """
     Infer report template based on transcript content and extract fields using LLM.
@@ -130,7 +130,7 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown ni texte additionnel."""
         # Add default operator
         if "Opérateur" in fields and not fields["Opérateur"]:
             if template == "tour_securite":
-                fields["Opérateur"] = "Marie Martin - Responsable sécurité"
+                fields["Opérateur"] = "Salma OUARDI - Responsable sécurité"
             elif template == "tache_assignee":
                 fields["Opérateur"] = "Pierre Leroy - Coordinateur"
             else:
