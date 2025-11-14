@@ -5,15 +5,14 @@
 # VINCI brand primary color - used for interactive elements, focus states, and accents
 primaryColor = "#004489"
 
-# Clean white background for main content area
-backgroundColor = "#FFFFFF"
+# Softer blue-tinted background for main content area
+backgroundColor = "#edf1f7"
 
-# Light gray background for sidebar and secondary elements
-# This provides subtle contrast while maintaining professionalism
-secondaryBackgroundColor = "#f8f9fa"
+# Muted sidebar background to reduce brightness
+secondaryBackgroundColor = "#dfe6f2"
 
-# VINCI brand blue for text - provides excellent readability and brand consistency
-textColor = "#1e4f93"
+# Deep navy text for readability
+textColor = "#14213d"
 
 # Clean sans-serif font for modern, professional appearance
 font = "sans serif"

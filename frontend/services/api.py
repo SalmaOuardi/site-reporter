@@ -1,4 +1,4 @@
-"""Wrapper around the FastAPI backend endpoints."""
+"""Tiny REST client the Streamlit UI uses to talk to FastAPI."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ load_dotenv(dotenv_path=ENV_PATH, override=False)
 
 
 class BackendClient:
-    """Simple REST client used by the Streamlit UI."""
+    """Handles all REST calls to the backend from Streamlit."""
 
     def __init__(self, base_url: Optional[str] = None) -> None:
         env_url = base_url or os.getenv("BACKEND_URL", "http://localhost:8000")
@@ -32,25 +32,25 @@ class BackendClient:
         return response.json()
 
     def transcribe(self, audio_b64: str, language: Optional[str] = None) -> Dict[str, Any]:
-        """Call the transcription endpoint."""
+        """Send audio to `/api/transcribe`."""
 
         return self._post("/api/transcribe", {"audio_b64": audio_b64, "language": language})
 
     def infer_template(self, transcript: str) -> Dict[str, Any]:
-        """Call the template inference endpoint."""
+        """Ask `/api/report/template` to pick the template."""
 
         return self._post("/api/report/template", {"transcript": transcript})
 
     def generate_report(
         self, template_type: str, fields: Dict[str, str], transcript: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Call the report generation endpoint."""
+        """Generate a report via `/api/report/generate`."""
 
         payload = {"template_type": template_type, "fields": fields, "transcript": transcript}
         return self._post("/api/report/generate", payload)
 
     def run_auto_pipeline(self, audio_b64: str, language: Optional[str] = None) -> Dict[str, Any]:
-        """Execute the automated pipeline endpoint."""
+        """Use `/api/pipeline/auto` for the fire-and-forget flow."""
 
         return self._post(
             "/api/pipeline/auto",

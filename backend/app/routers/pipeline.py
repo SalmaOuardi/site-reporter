@@ -1,4 +1,4 @@
-"""Workflow endpoints for transcription, template inference, and report generation."""
+"""REST endpoints driving the transcription → template → report workflow."""
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api", tags=["workflow"])
 
 @router.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe(payload: TranscriptionRequest) -> TranscriptionResponse:
-    """Transcribe a base64 audio payload."""
+    """Turn the base64 audio sent by Streamlit into text."""
 
     text = await transcribe_audio(payload.audio_b64, payload.language)
     return TranscriptionResponse(text=text)
@@ -31,7 +31,7 @@ async def transcribe(payload: TranscriptionRequest) -> TranscriptionResponse:
 async def infer_template_route(
     payload: TemplateInferenceRequest,
 ) -> TemplateInferenceResponse:
-    """Infer a report template from the transcript text."""
+    """Pick the proper template and seed values based on the transcript."""
 
     transcript = payload.transcript.strip()
     if not transcript:
@@ -48,7 +48,7 @@ async def infer_template_route(
 async def generate_report_route(
     payload: ReportGenerationRequest,
 ) -> ReportGenerationResponse:
-    """Generate the final textual report."""
+    """Build the formatted report once the fields look good."""
 
     if not payload.fields:
         raise HTTPException(
@@ -62,7 +62,7 @@ async def generate_report_route(
 
 @router.post("/pipeline/auto", response_model=AutoPipelineResponse)
 async def auto_pipeline(payload: AutoPipelineRequest) -> AutoPipelineResponse:
-    """Run the full workflow without human intervention."""
+    """Run transcription, inference, and report in one go."""
 
     text = await transcribe_audio(payload.audio_b64, payload.language)
     template, fields = await infer_template(text)
@@ -70,4 +70,3 @@ async def auto_pipeline(payload: AutoPipelineRequest) -> AutoPipelineResponse:
     return AutoPipelineResponse(
         text=text, template_type=template, fields=fields, report_text=report_text
     )
-

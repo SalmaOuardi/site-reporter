@@ -1,4 +1,4 @@
-"""Template inference logic with LLM-powered field extraction."""
+"""Decide which template fits a transcript and have the LLM fill the fields."""
 
 from __future__ import annotations
 
@@ -8,22 +8,12 @@ from typing import Dict, Tuple
 from .llm import chat_completion
 from ..core.config import get_settings
 
-#TODO: Improve template inference with more advanced NLP techniques or an llm call if needed.
 async def infer_template(transcript: str) -> Tuple[str, Dict[str, str]]:
-    """
-    Infer report template based on transcript content and extract fields using LLM.
-
-    Templates:
-    - probleme_decouverte: Problem/incident reporting
-    - tour_securite: Security inspection tour
-    - tache_assignee: Task assignment
-    - rapport_generique: Generic report (default)
-    """
+    """Guess the template from keywords and let the LLM pull field values."""
 
     normalized = transcript.lower()
     settings = get_settings()
 
-    # Step 1: Detect template type using keywords
     if any(word in normalized for word in ("problème", "problem", "incident", "souci", "défaillance", "panne", "fuite", "casse")):
         template = "probleme_decouverte"
         field_schema = {
@@ -73,7 +63,6 @@ async def infer_template(transcript: str) -> Tuple[str, Dict[str, str]]:
             "Plan d'action": "actions à prendre",
         }
 
-    # Step 2: Use LLM to extract fields from transcript
     system_prompt = """Tu es un assistant IA spécialisé dans l'extraction d'informations de rapports de chantier en français.
 Tu dois extraire les informations pertinentes d'une transcription audio et les structurer selon un schéma donné.
 
@@ -97,16 +86,13 @@ Si une valeur n'est pas mentionnée, mets une chaîne vide "".
 Réponds UNIQUEMENT avec l'objet JSON, sans markdown ni texte additionnel."""
 
     try:
-        # Call LLM to extract fields
         llm_response = await chat_completion(
             prompt=user_prompt,
             system_message=system_prompt,
-            temperature=0.1,  # Low temperature for factual extraction
+            temperature=0.1,  # keep answers grounded
             max_tokens=1000,
         )
 
-        # Parse JSON response
-        # Remove markdown code blocks if present
         cleaned_response = llm_response.strip()
         if cleaned_response.startswith("```json"):
             cleaned_response = cleaned_response[7:]
@@ -118,16 +104,13 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown ni texte additionnel."""
 
         fields = json.loads(cleaned_response)
 
-        # Ensure all expected fields are present
         for field_name in field_schema.keys():
             if field_name not in fields:
                 fields[field_name] = ""
 
     except Exception as e:
-        # Fallback to empty fields if LLM extraction fails
         print(f"LLM extraction failed: {e}, using empty fields")
         fields = {field_name: "" for field_name in field_schema.keys()}
-        # Add default operator
         if "Opérateur" in fields and not fields["Opérateur"]:
             if template == "tour_securite":
                 fields["Opérateur"] = "Salma OUARDI - Responsable sécurité"
@@ -137,4 +120,3 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown ni texte additionnel."""
                 fields["Opérateur"] = "Jean Dupont - Chef de chantier"
 
     return template, fields
-

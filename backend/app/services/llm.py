@@ -1,4 +1,4 @@
-"""LLM service using Azure OpenAI Mistral model."""
+"""Small helper around Azure's Mistral deployment."""
 
 from __future__ import annotations
 
@@ -19,31 +19,15 @@ async def chat_completion(
     temperature: float = 0.7,
     max_tokens: int = 2000,
 ) -> str:
-    """
-    Generate text using Azure OpenAI Mistral model.
-
-    Args:
-        prompt: User prompt/question
-        system_message: Optional system instruction to guide the model
-        temperature: Sampling temperature (0.0-2.0). Higher = more creative
-        max_tokens: Maximum tokens to generate
-
-    Returns:
-        Generated text response
-
-    Raises:
-        OpenAIError: If Azure OpenAI API call fails
-    """
+    """Send a chat prompt to Mistral and return the assistant text."""
     settings = get_settings()
 
-    # Initialize Azure OpenAI client
     client = AsyncAzureOpenAI(
         api_key=settings.azure_openai_key,
         api_version=settings.mistral_api_version,
         azure_endpoint=settings.azure_endpoint,
     )
 
-    # Prepare messages
     messages = []
     if system_message:
         messages.append({"role": "system", "content": system_message})
@@ -57,7 +41,6 @@ async def chat_completion(
             max_tokens=max_tokens,
         )
 
-        # Extract response text
         if not response.choices:
             raise ValueError("LLM response did not contain any choices")
 

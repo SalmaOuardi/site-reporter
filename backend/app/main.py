@@ -1,4 +1,4 @@
-"""FastAPI entry-point for the site reporter backend."""
+"""FastAPI bootstrap for the Site Reporter backend."""
 
 from fastapi import FastAPI
 
@@ -7,14 +7,14 @@ from .routers.pipeline import router as workflow_router
 
 
 def create_app() -> FastAPI:
-    """Application factory used by uvicorn."""
+    """Spin up the FastAPI app with config and routers."""
 
     settings = get_settings()
     app = FastAPI(title=settings.project_name, version="0.1.0")
 
     @app.get("/health", tags=["health"])
     async def health_check() -> dict[str, str]:
-        """Basic readiness probe."""
+        """Handy readiness probe for uptime checks."""
 
         return {"status": "ok", "service": settings.project_name}
 
@@ -24,4 +24,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

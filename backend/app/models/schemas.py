@@ -1,4 +1,4 @@
-"""Pydantic request/response schemas used by FastAPI routers."""
+"""Typed payloads passed between the Streamlit UI and FastAPI."""
 
 from typing import Dict, Optional
 
@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class TranscriptionRequest(BaseModel):
-    """Payload received from the frontend after an audio recording."""
+    """What the UI sends after recording audio."""
 
     audio_b64: str = Field(..., description="Base64-encoded audio bytes.")
     language: Optional[str] = Field(
@@ -15,19 +15,19 @@ class TranscriptionRequest(BaseModel):
 
 
 class TranscriptionResponse(BaseModel):
-    """Response containing the transcript text."""
+    """Plain transcription result."""
 
     text: str = Field(..., description="Raw transcription from the STT model.")
 
 
 class TemplateInferenceRequest(BaseModel):
-    """Payload to infer the best template from a transcript."""
+    """Request for template inference once we have text."""
 
     transcript: str = Field(..., description="Human readable transcript.")
 
 
 class TemplateInferenceResponse(BaseModel):
-    """Response describing the selected template and extracted placeholder fields."""
+    """Template choice plus the raw fields we inferred."""
 
     template_type: str = Field(..., description="One of the supported template names.")
     fields: Dict[str, str] = Field(
@@ -36,7 +36,7 @@ class TemplateInferenceResponse(BaseModel):
 
 
 class ReportGenerationRequest(BaseModel):
-    """Request body for generating a final textual report."""
+    """Everything needed to build the final report text."""
 
     template_type: str = Field(..., description="Template to fill.")
     fields: Dict[str, str] = Field(..., description="Structured inputs for the template.")
@@ -46,13 +46,13 @@ class ReportGenerationRequest(BaseModel):
 
 
 class ReportGenerationResponse(BaseModel):
-    """Response for report generation."""
+    """Final report text blob."""
 
     report_text: str = Field(..., description="Plaintext report summary.")
 
 
 class AutoPipelineRequest(TranscriptionRequest):
-    """Request body for the fully automated workflow."""
+    """Fire-and-forget payload when we skip human validation."""
 
     autopilot: bool = Field(
         default=True,
@@ -61,10 +61,9 @@ class AutoPipelineRequest(TranscriptionRequest):
 
 
 class AutoPipelineResponse(BaseModel):
-    """Aggregated response for the automated workflow."""
+    """Transcription, template, and report returned together."""
 
     text: str
     template_type: str
     fields: Dict[str, str]
     report_text: str
-

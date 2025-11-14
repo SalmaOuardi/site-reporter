@@ -1,4 +1,4 @@
-"""Interface Streamlit pour le générateur de rapports de chantier MVP."""
+"""Tableau de bord Streamlit pour piloter le MVP Site Reporter."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import streamlit as st
 
 from services.api import BackendClient
 
-st.set_page_config(page_title="Rapporteur de Chantier", layout="wide", page_icon="🏗️")
+st.set_page_config(page_title="Rapporteur de Chantier", layout="wide", page_icon=":material/construction:")
 
 client = BackendClient()
 
@@ -21,7 +21,7 @@ TRANSCRIPT_WIDGET_KEY = "transcript_editor"
 
 
 def init_state() -> None:
-    """Ensure all workflow keys exist in session_state."""
+    """Seed session_state with the keys we rely on."""
 
     defaults = {
         "mode": MANUAL_MODE,
@@ -37,7 +37,7 @@ def init_state() -> None:
 
 
 def reset_workflow() -> None:
-    """Clear all derived values while keeping the selected mode."""
+    """Clear everything but remember which mode was active."""
 
     preserved_mode = st.session_state.get("mode", MANUAL_MODE)
     st.session_state.clear()
@@ -46,37 +46,137 @@ def reset_workflow() -> None:
 
 
 def encode_audio(audio_bytes: bytes) -> str:
-    """Convert binary audio into the base64 payload required by the backend."""
+    """Turn raw audio bytes into the base64 payload FastAPI expects."""
 
     return base64.b64encode(audio_bytes).decode("utf-8")
 
 
 def data_editor_rows(fields: Dict[str, str]) -> List[Dict[str, str]]:
-    """Convert a dict into rows consumable by st.data_editor."""
+    """Convert our field dict into `st.data_editor` rows."""
 
     return [{"Champ": key, "Valeur": value} for key, value in fields.items()]
 
 
 def set_transcript_state(value: str) -> None:
-    """Keep transcript and widget state synchronized."""
+    """Keep both transcript stores (state + widget key) aligned."""
 
     st.session_state["transcript"] = value
     st.session_state[TRANSCRIPT_WIDGET_KEY] = value
 
 
 def audio_trigger_button(label: str, callback: Callable[[bytes], None]) -> None:
-    """Render a button that requires a recorded audio clip."""
+    """Render a CTA that does nothing until we have a recording."""
 
     stored_audio = st.session_state.get("audio_bytes")
     if st.button(label, disabled=stored_audio is None, use_container_width=True):
         if stored_audio is None:
-            st.warning("⚠️ Veuillez d'abord enregistrer un mémo vocal.")
+            st.warning(":material/warning: Veuillez d'abord enregistrer un mémo vocal.")
         else:
             callback(stored_audio)
 
 
+def inject_theme_overrides() -> None:
+    """Drop some CSS to make the Streamlit theme feel like VINCI."""
+
+    st.markdown(
+        """
+        <style>
+            .main {
+                background: linear-gradient(180deg, #f1f4fb 0%, #edf1f7 40%, #edf1f7 100%);
+            }
+            section[data-testid="stSidebar"] {
+                background-color: #dfe6f2 !important;
+            }
+            section[data-testid="stSidebar"] .css-1d391kg,
+            section[data-testid="stSidebar"] p,
+            section[data-testid="stSidebar"] label {
+                color: #14213d !important;
+            }
+            .vinci-hero {
+                background: linear-gradient(135deg, #f9fbff 0%, #e8f1ff 100%);
+                border-radius: 24px;
+                padding: 1.5rem;
+                border: 1px solid rgba(0, 68, 137, 0.1);
+                margin-bottom: 1.5rem;
+            }
+            .vinci-hero__content {
+                display: flex;
+                gap: 1.5rem;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .vinci-hero__text h1 {
+                font-size: 2.2rem;
+                margin-bottom: 0.3rem;
+                color: #0c2c5c;
+                font-weight: 700;
+            }
+            .vinci-hero__text p {
+                margin: 0;
+                color: #385076;
+                font-size: 1rem;
+            }
+            .vinci-tagline {
+                font-weight: 500;
+                letter-spacing: 0.6px;
+                text-transform: uppercase;
+                color: #1e4f93;
+            }
+            div[data-testid="stExpander"] {
+                border: 1px solid rgba(0, 68, 137, 0.15);
+                border-radius: 16px !important;
+                background-color: #f8f9fc;
+            }
+            div[data-testid="stExpander"] > details > summary {
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #0c2c5c;
+            }
+            div[data-testid="stExpander"] details[open] {
+                box-shadow: 0 6px 18px rgba(20, 33, 61, 0.08);
+            }
+            .step-hint {
+                margin-top: 0.3rem;
+                color: #4d5c7a;
+                font-size: 0.9rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_header() -> None:
+    """Display the VINCI block with logo, title, and tagline."""
+
+    logo_path = Path(__file__).resolve().parent / "assets" / "vinci-logo.png"
+    logo_html = ""
+    if logo_path.exists():
+        encoded_logo = base64.b64encode(logo_path.read_bytes()).decode("utf-8")
+        logo_html = (
+            f"<img src='data:image/png;base64,{encoded_logo}' alt='VINCI Construction' "
+            "style='max-width:180px;'>"
+        )
+
+    st.markdown(
+        f"""
+        <div class="vinci-hero">
+            <div class="vinci-hero__content">
+                <div>{logo_html}</div>
+                <div class="vinci-hero__text">
+                    <div class="vinci-tagline">VINCI Construction · MVP</div>
+                    <h1>Générateur de Rapports de Chantier</h1>
+                    <p>Mémos vocaux → GPT‑4o-mini-transcribe → Mistral → rapport structuré.</p>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def capture_audio() -> Optional[bytes]:
-    """Capture live audio recordings only."""
+    """Handle microphone capture (no file uploads for now)."""
 
     if not hasattr(st, "audio_input"):
         st.sidebar.error(
@@ -85,10 +185,10 @@ def capture_audio() -> Optional[bytes]:
         )
         return None
 
-    audio_input = st.sidebar.audio_input("🎤 Enregistrer un mémo vocal", key="record_audio")
+    audio_input = st.sidebar.audio_input(":material/mic: Enregistrer un mémo vocal", key="record_audio")
     if audio_input is not None:
         audio_bytes = audio_input.getvalue()
-        st.sidebar.success("✅ Enregistrement capturé.")
+        st.sidebar.success("Enregistrement capturé.")
         st.sidebar.audio(audio_bytes, format="audio/wav")
         return audio_bytes
 
@@ -97,172 +197,181 @@ def capture_audio() -> Optional[bytes]:
         st.sidebar.audio(stored_audio, format="audio/wav")
         st.sidebar.caption("Lecture du dernier enregistrement.")
     else:
-        st.sidebar.info("Réalisez un enregistrement pour activer les étapes suivantes.")
+        st.sidebar.info(":material/info: Réalisez un enregistrement pour activer les étapes suivantes.")
     return None
 
 
 def handle_transcription(audio_bytes: bytes) -> None:
-    """Call the backend transcription endpoint."""
+    """Send the recorded audio to the backend STT endpoint."""
 
     encoded = encode_audio(audio_bytes)
     try:
-        with st.spinner("🔄 Transcription en cours avec GPT-4o-mini..."):
+        with st.spinner(":material/autorenew: Transcription en cours avec GPT-4o-mini..."):
             response = client.transcribe(encoded, language=DEFAULT_LANGUAGE)
     except Exception as exc:  # noqa: BLE001 - surface network issues in the UI
-        st.error(f"❌ Échec de la transcription: {exc}")
+        st.error(f":material/error: Échec de la transcription: {exc}")
         return
     set_transcript_state(response["text"])
-    st.toast("✅ Transcription reçue.", icon="✏️")
-    st.rerun()  # Force UI refresh to show transcript
+    st.toast("Transcription reçue.", icon=":material/done_all:")
+    st.rerun()  # refresh the UI so the transcript shows up
 
 
 def handle_template_inference() -> None:
-    """Call backend to infer a template and seed editable fields."""
+    """Ask the backend to pick a template and prefill fields."""
 
     transcript = st.session_state.get("transcript", "").strip()
     if not transcript:
-        st.warning("⚠️ Veuillez d'abord générer ou coller une transcription.")
+        st.warning(":material/info: Veuillez d'abord générer ou coller une transcription.")
         return
 
     try:
-        with st.spinner("🔄 Analyse du type de rapport..."):
+        with st.spinner(":material/auto_graph: Analyse du type de rapport..."):
             response = client.infer_template(transcript)
     except Exception as exc:  # noqa: BLE001
-        st.error(f"❌ Échec de l'analyse: {exc}")
+        st.error(f":material/error: Échec de l'analyse: {exc}")
         return
     st.session_state["template_type"] = response["template_type"]
     st.session_state["fields"] = response["fields"]
-    st.toast(f"✅ Template détecté: {response['template_type']}", icon="🧩")
-    st.rerun()  # Force UI refresh to show fields table
+    st.toast(f"Template détecté: {response['template_type']}", icon=":material/insights:")
+    st.rerun()  # refresh the UI so the new table renders
 
 
 def handle_report_generation() -> None:
-    """Call backend to build the final textual report."""
+    """Trigger report synthesis once the structured data looks good."""
 
     template_type = st.session_state.get("template_type")
     fields = st.session_state.get("fields", {})
     if not template_type or not fields:
-        st.warning("⚠️ Veuillez analyser le template et modifier les champs avant de générer.")
+        st.warning(":material/info: Veuillez analyser le template et modifier les champs avant de générer.")
         return
 
     try:
-        with st.spinner("🔄 Génération du rapport..."):
+        with st.spinner(":material/article: Génération du rapport..."):
             response = client.generate_report(
                 template_type=template_type,
                 fields=fields,
                 transcript=st.session_state.get("transcript"),
             )
     except Exception as exc:  # noqa: BLE001
-        st.error(f"❌ Échec de la génération: {exc}")
+        st.error(f":material/error: Échec de la génération: {exc}")
         return
     st.session_state["report_text"] = response["report_text"]
-    st.toast("✅ Rapport prêt pour révision.", icon="📄")
-    st.rerun()  # Force UI refresh to show report
+    st.toast("Rapport prêt pour révision.", icon=":material/done_outline:")
+    st.rerun()  # refresh the UI so the report preview appears
 
 
 def handle_auto_pipeline(audio_bytes: bytes) -> None:
-    """Run the entire workflow in a single backend call."""
+    """Let the backend run STT → template → report in one go."""
 
     encoded = encode_audio(audio_bytes)
     try:
-        with st.spinner("🔄 Pipeline automatique en cours..."):
+        with st.spinner(":material/bolt: Pipeline automatique en cours..."):
             response = client.run_auto_pipeline(encoded, language=DEFAULT_LANGUAGE)
     except Exception as exc:  # noqa: BLE001
-        st.error(f"❌ Échec du pipeline: {exc}")
+        st.error(f":material/error: Échec du pipeline: {exc}")
         return
 
     set_transcript_state(response["text"])
     st.session_state["template_type"] = response["template_type"]
     st.session_state["fields"] = response["fields"]
     st.session_state["report_text"] = response["report_text"]
-    st.toast("✅ Rapport automatique créé.", icon="⚡️")
-    st.rerun()  # Force UI refresh to show all results
+    st.toast("Rapport automatique créé.", icon=":material/robot_2:")
+    st.rerun()  # refresh the UI so each result card updates
 
 
 def rows_to_fields_dict(rows: List[Dict[str, str]]) -> Dict[str, str]:
-    """Convert data_editor rows back to a dict."""
+    """Convert edited rows back into the dict shape our API expects."""
 
     return {row["Champ"]: row["Valeur"] for row in rows}
 
 
 def show_report_preview(report_text: str) -> None:
-    """Render the final report in a code block."""
+    """Offer a simple preview of the generated report text."""
 
-    st.subheader("📄 Rapport Généré")
+    st.subheader(":material/description: Rapport Généré")
     st.code(report_text, language="text")
 
 
 def render_manual_workflow() -> None:
-    """Render the human-in-the-loop workflow."""
+    """Layout the three human-in-loop steps with helpful copy."""
 
-    st.subheader("📝 Étape 1: Enregistrer et Transcrire")
-    st.caption("Enregistrez un mémo vocal en français, puis lancez la transcription.")
+    with st.expander(":material/mic: Étape 1 · Enregistrer et Transcrire", expanded=True):
+        st.caption("Enregistrez un mémo vocal en français, puis lancez la transcription.")
+        audio_trigger_button(":material/transcribe: Transcrire l'audio", handle_transcription)
 
-    audio_trigger_button("📝 Transcrire l'audio", handle_transcription)
+        new_transcript = st.text_area(
+            "Transcription (modifiable):",
+            height=160,
+            placeholder="La transcription apparaîtra ici après l'étape 1.",
+            key=TRANSCRIPT_WIDGET_KEY,
+        )
+        if new_transcript != st.session_state.get("transcript"):
+            set_transcript_state(new_transcript)
 
-    new_transcript = st.text_area(
-        "Transcription (modifiable):",
-        height=160,
-        placeholder="La transcription apparaîtra ici après l'étape 1.",
-        key=TRANSCRIPT_WIDGET_KEY,
-    )
-    if new_transcript != st.session_state.get("transcript"):
-        st.session_state["transcript"] = new_transcript
+    with st.expander(
+        ":material/table_chart: Étape 2 · Template et Données Structurées",
+        expanded=bool(st.session_state.get("transcript")),
+    ):
+        if not st.session_state.get("transcript"):
+            st.info("Ajoutez ou éditez une transcription avant d'analyser le template.")
+        else:
+            st.caption("Détectez automatiquement le bon template puis ajustez les champs.")
+            if st.button(":material/stacked_bar_chart: Analyser le type de rapport", use_container_width=True):
+                handle_template_inference()
 
-    if st.session_state.get("transcript"):
-        st.subheader("🔍 Étape 2: Template et Données Structurées")
-        st.caption("Détectez automatiquement le bon template puis ajustez les champs.")
-        if st.button("🔍 Analyser le type de rapport", use_container_width=True):
-            handle_template_inference()
+            if st.session_state.get("template_type"):
+                st.info(f"**Template détecté:** {st.session_state['template_type']}")
+                rows = data_editor_rows(st.session_state.get("fields", {}))
+                edited = st.data_editor(
+                    rows,
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    key="fields_editor",
+                )
+                st.session_state["fields"] = rows_to_fields_dict(edited)
+            else:
+                st.info("Aucun template détecté pour l'instant.")
 
-        if st.session_state.get("template_type"):
-            st.info(f"**Template détecté:** {st.session_state['template_type']}")
-            rows = data_editor_rows(st.session_state.get("fields", {}))
-            edited = st.data_editor(
-                rows,
-                use_container_width=True,
-                num_rows="dynamic",
-                key="fields_editor",
-            )
-            st.session_state["fields"] = rows_to_fields_dict(edited)
-
-    if st.session_state.get("fields"):
-        st.subheader("📄 Étape 3: Générer le Rapport")
-        if st.button("📄 Générer le rapport", use_container_width=True):
-            handle_report_generation()
+    with st.expander(":material/description: Étape 3 · Générer le Rapport", expanded=bool(st.session_state.get("fields"))):
+        if not st.session_state.get("fields"):
+            st.info("Complétez d'abord les champs structurés.")
+        else:
+            if st.button(":material/picture_as_pdf: Générer le rapport", use_container_width=True):
+                handle_report_generation()
 
 
 def render_auto_workflow() -> None:
-    """Render the fully automated workflow."""
+    """UI for the single-click automated path."""
 
-    st.subheader("⚡ Pipeline Automatique")
-    st.markdown("Ce mode enchaîne transcription → analyse → génération sans validation.")
+    with st.expander(":material/bolt: Pipeline Automatique", expanded=True):
+        st.markdown("Ce mode enchaîne transcription → analyse → génération sans validation.")
+        audio_trigger_button(":material/robot_2: Lancer le pipeline automatique", handle_auto_pipeline)
 
-    audio_trigger_button("⚡ Lancer le pipeline automatique", handle_auto_pipeline)
+        if st.session_state.get("transcript"):
+            st.text_area(
+                "Transcription générée",
+                value=st.session_state["transcript"],
+                height=140,
+                disabled=True,
+            )
+
+        if st.session_state.get("fields"):
+            st.caption("Champs détectés (lecture seule)")
+            st.json(st.session_state["fields"])
 
 
 def main() -> None:
-    """Application entry point."""
+    """Streamlit entry point."""
 
     init_state()
-
-    logo_path = Path(__file__).resolve().parent / "assets" / "vinci-logo.png"
-    if logo_path.exists():
-        col_logo, col_title = st.columns([1, 5])
-        with col_logo:
-            st.image(str(logo_path), use_column_width=True)
-        with col_title:
-            st.title("🏗️ Générateur de Rapports de Chantier")
-    else:
-        st.title("🏗️ Générateur de Rapports de Chantier")
-    st.markdown("*MVP - Audio vers rapport structuré*")
-    st.divider()
+    inject_theme_overrides()
+    render_header()
 
     with st.sidebar:
-        st.header("⚙️ Contrôles")
+        st.header(":material/tune: Contrôles")
         st.caption("Langue cible: Français (fixe)")
         st.caption("L'enregistreur du navigateur est requis.")
-        if st.button("🔄 Réinitialiser", type="secondary", use_container_width=True):
+        if st.button(":material/restart_alt: Réinitialiser", type="secondary", use_container_width=True):
             reset_workflow()
 
     mode_choice = st.radio(
@@ -282,7 +391,6 @@ def main() -> None:
     else:
         render_auto_workflow()
 
-    # Show report if available
     if st.session_state.get("report_text"):
         show_report_preview(st.session_state["report_text"])
 

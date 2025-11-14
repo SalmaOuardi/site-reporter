@@ -1,11 +1,10 @@
-"""Test script for Azure OpenAI integrations (STT and LLM)."""
+"""Quick smoke tests for the Azure STT and LLM helpers."""
 
 import asyncio
 import base64
 import sys
 from pathlib import Path
 
-# Add backend to path (project root -> backend)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 BACKEND_PATH = PROJECT_ROOT / "backend"
 sys.path.insert(0, str(BACKEND_PATH))
@@ -15,7 +14,7 @@ from app.services.stt import transcribe_audio
 
 
 async def test_llm():
-    """Test the Mistral LLM service."""
+    """Exercise the Mistral deployment end-to-end."""
     print("\n" + "=" * 60)
     print("Testing Azure Mistral LLM Service")
     print("=" * 60)
@@ -44,7 +43,7 @@ async def test_llm():
 
 
 async def test_stt(audio_file_path: str = None):
-    """Test the STT service with an audio file."""
+    """Send a WAV clip through GPT-4o-mini-transcribe."""
     print("\n" + "=" * 60)
     print("Testing Azure STT Service")
     print("=" * 60)
@@ -81,7 +80,7 @@ async def test_stt(audio_file_path: str = None):
 
 
 async def main():
-    """Run all tests."""
+    """Kick off both integration tests."""
     print("\n🚀 Starting Azure OpenAI Integration Tests")
 
     # Test LLM

@@ -1,4 +1,4 @@
-"""Application configuration and settings management."""
+"""Central place for Site Reporter settings."""
 
 from functools import lru_cache
 from pathlib import Path
@@ -11,22 +11,18 @@ ENV_FILE = BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
-    """Centralized settings loaded from environment variables or a .env file."""
+    """Load everything we need from environment variables or .env."""
 
-    # Azure OpenAI Configuration
     azure_openai_key: str
     azure_endpoint: str = "https://draftspeechtotext.cognitiveservices.azure.com"
 
-    # Speech-to-Text Configuration
     stt_deployment_name: str = "gpt-4o-mini-transcribe"
     stt_api_version: str = "2025-03-01-preview"
-    default_language: str = "fr"  # French by default
+    default_language: str = "fr"
 
-    # LLM Configuration (Mistral)
     mistral_deployment_name: str = "mistral-small-2503"
     mistral_api_version: str = "2024-05-01-preview"
 
-    # Application Configuration
     default_template: str = "rapport_generique"
     project_name: str = "Site Reporter API"
     api_prefix: str = "/api"
@@ -39,7 +35,7 @@ class Settings(BaseSettings):
 
     @property
     def stt_endpoint(self) -> str:
-        """Construct the full STT endpoint URL."""
+        """Full STT endpoint URL baked from the Azure pieces."""
         return (
             f"{self.azure_endpoint}/openai/deployments/{self.stt_deployment_name}/"
             f"audio/transcriptions?api-version={self.stt_api_version}"
@@ -47,7 +43,7 @@ class Settings(BaseSettings):
 
     @property
     def mistral_endpoint(self) -> str:
-        """Construct the full Mistral chat completions endpoint URL."""
+        """Full Mistral chat endpoint used by the LLM helper."""
         return (
             f"{self.azure_endpoint}/openai/deployments/{self.mistral_deployment_name}/"
             f"chat/completions?api-version={self.mistral_api_version}"
@@ -56,6 +52,6 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return a cached Settings instance to avoid repeated disk I/O."""
+    """Reuse a single Settings instance across the app."""
 
     return Settings()

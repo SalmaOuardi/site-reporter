@@ -1,4 +1,4 @@
-"""Génération de rapports de chantier en français."""
+"""Build human-friendly French reports from the extracted fields."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Dict, Optional
 
 
-# Template headers in French
 TEMPLATE_HEADERS = {
     "probleme_decouverte": "RAPPORT D'INCIDENT - Problème Découvert",
     "tour_securite": "RAPPORT DE SÉCURITÉ - Tour de Chantier",
@@ -18,24 +17,12 @@ TEMPLATE_HEADERS = {
 def generate_report(
     template_type: str, fields: Dict[str, str], transcript: Optional[str] = None
 ) -> str:
-    """
-    Créer un rapport de chantier en français.
+    """Assemble a French report body from the selected template and data."""
 
-    Args:
-        template_type: Type de template (probleme_decouverte, tour_securite, etc.)
-        fields: Dictionnaire des champs du rapport
-        transcript: Transcription audio optionnelle
-
-    Returns:
-        Rapport formaté en texte
-    """
-
-    # Get French header for template
     header = TEMPLATE_HEADERS.get(
         template_type, f"RAPPORT DE CHANTIER - {template_type.upper()}"
     )
 
-    # Format timestamp in French
     now = datetime.now()
     timestamp = now.strftime("%d/%m/%Y à %H:%M")
 
@@ -51,13 +38,10 @@ def generate_report(
         "",
     ]
 
-    # Add all fields
     for key, value in fields.items():
-        # Format the field nicely
         field_value = value if value else "Non renseigné"
         lines.append(f"▪ {key}: {field_value}")
 
-    # Add transcript if available
     if transcript:
         lines.extend(
             [
@@ -71,7 +55,6 @@ def generate_report(
             ]
         )
 
-    # Footer
     lines.extend(
         [
             "",
@@ -83,4 +66,3 @@ def generate_report(
     )
 
     return "\n".join(lines)
-

@@ -1,4 +1,4 @@
-"""Interface Streamlit pour le générateur de rapports de chantier MVP."""
+"""Legacy English version of the Site Reporter Streamlit UI."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ client = BackendClient()
 
 
 def init_state() -> None:
-    """Ensure all workflow keys exist in session_state."""
+    """Seed session_state with expected keys."""
 
     defaults = {
         "mode": "Avec validation humaine",
@@ -25,14 +25,14 @@ def init_state() -> None:
         "fields": {},
         "report_text": "",
         "audio_bytes": None,
-        "language": "fr",  # Français par défaut
+        "language": "fr",  # same default language as the FR app
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
 
 
 def reset_workflow() -> None:
-    """Clear all derived values while keeping the selected mode."""
+    """Reset everything but keep the selected mode."""
 
     preserved_mode = st.session_state.get("mode", "Avec validation humaine")
     st.session_state.clear()
@@ -41,19 +41,19 @@ def reset_workflow() -> None:
 
 
 def encode_audio(audio_bytes: bytes) -> str:
-    """Convert binary audio into the base64 payload required by the backend."""
+    """Base64-encode the audio clip so the backend accepts it."""
 
     return base64.b64encode(audio_bytes).decode("utf-8")
 
 
 def data_editor_rows(fields: Dict[str, str]) -> List[Dict[str, str]]:
-    """Convert a dict into rows consumable by st.data_editor."""
+    """Turn the field dict into editor rows."""
 
     return [{"Field": key, "Value": value} for key, value in fields.items()]
 
 
 def capture_audio() -> Optional[bytes]:
-    """Handle either direct recording or manual uploads."""
+    """Record audio via Streamlit or accept uploads."""
 
     audio_bytes: Optional[bytes] = None
     audio_input = None
@@ -81,7 +81,7 @@ def capture_audio() -> Optional[bytes]:
 
 
 def handle_transcription(audio_bytes: bytes, language: Optional[str]) -> None:
-    """Call the backend transcription endpoint."""
+    """Proxy the recorded audio to the backend STT endpoint."""
 
     encoded = encode_audio(audio_bytes)
     try:
@@ -95,7 +95,7 @@ def handle_transcription(audio_bytes: bytes, language: Optional[str]) -> None:
 
 
 def handle_template_inference() -> None:
-    """Call backend to infer a template and seed editable fields."""
+    """Ask the backend for template detection + field seeding."""
 
     transcript = st.session_state.get("transcript", "").strip()
     if not transcript:
@@ -114,7 +114,7 @@ def handle_template_inference() -> None:
 
 
 def handle_report_generation() -> None:
-    """Call backend to build the final textual report."""
+    """Request the final report from the backend."""
 
     template_type = st.session_state.get("template_type")
     fields = st.session_state.get("fields", {})
@@ -137,7 +137,7 @@ def handle_report_generation() -> None:
 
 
 def handle_auto_pipeline(audio_bytes: bytes, language: Optional[str]) -> None:
-    """Call the one-shot pipeline for the fully automated path."""
+    """Kick off the automated workflow endpoint."""
 
     encoded = encode_audio(audio_bytes)
     try:
@@ -155,7 +155,7 @@ def handle_auto_pipeline(audio_bytes: bytes, language: Optional[str]) -> None:
 
 
 def render_fields_editor() -> None:
-    """Render editable table for the structured template fields."""
+    """Show and store edits to the structured fields."""
 
     fields = st.session_state.get("fields", {})
     if not fields:
@@ -177,7 +177,7 @@ def render_fields_editor() -> None:
 
 
 def render_report_output() -> None:
-    """Display the generated report if available."""
+    """Display the current report preview."""
 
     report = st.session_state.get("report_text")
     if not report:
@@ -188,7 +188,7 @@ def render_report_output() -> None:
 
 
 def main() -> None:
-    """Wire all UI sections together."""
+    """Streamlit entry point for the English demo."""
 
     init_state()
 
@@ -207,7 +207,7 @@ def main() -> None:
         selected_language = st.selectbox(
             "Language",
             ["fr", "en", "es", "ar"],
-            index=0,  # French by default
+            index=0,
         )
         st.session_state["language"] = selected_language
         if st.button("Reset workflow", type="secondary"):
