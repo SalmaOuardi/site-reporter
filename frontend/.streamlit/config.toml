@@ -1,0 +1,22 @@
+# VINCI Company Streamlit Theme Configuration
+# Place this file at: .streamlit/config.toml in your Streamlit project
+
+[theme]
+# VINCI brand primary color - used for interactive elements, focus states, and accents
+primaryColor = "#004489"
+
+# Clean white background for main content area
+backgroundColor = "#FFFFFF"
+
+# Light gray background for sidebar and secondary elements
+# This provides subtle contrast while maintaining professionalism
+secondaryBackgroundColor = "#f8f9fa"
+
+# VINCI brand blue for text - provides excellent readability and brand consistency
+textColor = "#1e4f93"
+
+# Clean sans-serif font for modern, professional appearance
+font = "sans serif"
+
+# Base theme - starting from light theme
+base = "light"

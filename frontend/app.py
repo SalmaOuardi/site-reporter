@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import streamlit as st
@@ -245,7 +246,15 @@ def main() -> None:
 
     init_state()
 
-    st.title("🏗️ Générateur de Rapports de Chantier")
+    logo_path = Path(__file__).resolve().parent / "assets" / "vinci-logo.png"
+    if logo_path.exists():
+        col_logo, col_title = st.columns([1, 5])
+        with col_logo:
+            st.image(str(logo_path), use_column_width=True)
+        with col_title:
+            st.title("🏗️ Générateur de Rapports de Chantier")
+    else:
+        st.title("🏗️ Générateur de Rapports de Chantier")
     st.markdown("*MVP - Audio vers rapport structuré*")
     st.divider()
 
