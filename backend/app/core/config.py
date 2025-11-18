@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     azure_openai_key: str
     azure_endpoint: str = "https://draftspeechtotext.cognitiveservices.azure.com"
 
-    stt_deployment_name: str = "gpt-4o-mini-transcribe"
+    stt_deployment_name: str = "gpt-4o-transcribe"
     stt_api_version: str = "2025-03-01-preview"
     default_language: str = "fr"
 

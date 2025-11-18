@@ -166,7 +166,7 @@ def render_header() -> None:
                 <div class="vinci-hero__text">
                     <div class="vinci-tagline">VINCI Construction · MVP</div>
                     <h1>Générateur de Rapports de Chantier</h1>
-                    <p>Mémos vocaux → GPT‑4o-mini-transcribe → Mistral → rapport structuré.</p>
+                    <p>Mémos vocaux → GPT‑4o-transcribe → Mistral → rapport structuré.</p>
                 </div>
             </div>
         </div>
