@@ -67,3 +67,12 @@ class AutoPipelineResponse(BaseModel):
     template_type: str
     fields: Dict[str, str]
     report_text: str
+
+
+class DocxDownloadRequest(BaseModel):
+    """Request to download a DOCX report."""
+
+    fields: Dict[str, str] = Field(..., description="Structured inputs for the DOCX template.")
+    template_type: Optional[str] = Field(
+        default="probleme_decouverte", description="Template type to use."
+    )

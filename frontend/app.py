@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import streamlit as st
 
@@ -285,11 +285,44 @@ def rows_to_fields_dict(rows: List[Dict[str, str]]) -> Dict[str, str]:
     return {row["Champ"]: row["Valeur"] for row in rows}
 
 
+@st.cache_data(show_spinner=False)
+def generate_docx_payload(fields: Dict[str, str], template_type: str) -> Tuple[bytes, str]:
+    """Generate the DOCX bytes and filename from the current fields."""
+
+    docx_bytes = client.download_docx(fields, template_type)
+    date_str = fields.get("Date de découverte", fields.get("Date", "sans_date"))
+    filename = f"rapport_incident_{date_str.replace('/', '-')}.docx"
+    return docx_bytes, filename
+
+
 def show_report_preview(report_text: str) -> None:
     """Offer a simple preview of the generated report text."""
 
     st.subheader(":material/description: Rapport Généré")
     st.code(report_text, language="text")
+
+    fields = st.session_state.get("fields", {})
+    template_type = st.session_state.get("template_type", "probleme_decouverte")
+
+    if not fields:
+        st.warning(":material/info: Aucun champ disponible pour générer le document.")
+        return
+
+    try:
+        with st.spinner(":material/download: Préparation du document Word..."):
+            docx_bytes, filename = generate_docx_payload(fields, template_type)
+    except Exception as exc:  # noqa: BLE001
+        st.error(f":material/error: Échec de la génération du DOCX: {exc}")
+        return
+
+    if st.download_button(
+        label=":material/download: Télécharger le rapport (DOCX)",
+        data=docx_bytes,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        use_container_width=True,
+    ):
+        st.toast("Document prêt au téléchargement.", icon=":material/check_circle:")
 
 
 def render_manual_workflow() -> None:

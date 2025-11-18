@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Dict, Tuple
 
 from .llm import chat_completion
@@ -17,13 +18,18 @@ async def infer_template(transcript: str) -> Tuple[str, Dict[str, str]]:
     if any(word in normalized for word in ("problème", "problem", "incident", "souci", "défaillance", "panne", "fuite", "casse")):
         template = "probleme_decouverte"
         field_schema = {
-            "Date": "date mentionnée (format JJ/MM/AAAA)",
-            "Heure": "heure mentionnée si disponible",
-            "Opérateur": "nom de la personne si mentionné, sinon 'Jean Dupont - Chef de chantier'",
-            "Problème": "description du problème détecté",
-            "Domaine": "zone ou domaine concerné (structure, plomberie, électricité, etc.)",
-            "Urgence": "niveau d'urgence (Faible/Moyenne/Élevée/Critique)",
-            "Plan d'action": "actions recommandées ou à prendre",
+            "Nom du chantier": "nom du chantier ou projet si mentionné",
+            "Nom de l'incident": "titre ou nom court de l'incident",
+            "Emetteur du signalement": "nom de la personne qui signale l'incident",
+            "Date de découverte": "date de découverte de l'incident (format JJ/MM/AAAA)",
+            "Heure de découverte": "heure de découverte de l'incident (format HH:MM)",
+            "Adresse": "adresse ou localisation précise de l'incident",
+            "Nature de l'incident": "type ou catégorie de l'incident (électricité, plomberie, structure, etc.)",
+            "Description de l'incident": "description détaillée de l'incident observé",
+            "Risques identifiés": "risques potentiels liés à cet incident",
+            "Actions à réaliser": "actions correctives ou mesures à prendre",
+            "Niveau d'urgence": "niveau d'urgence (Faible/Moyen/Élevé/Critique)",
+            "Personnes prévenues": "liste des personnes ou services informés",
         }
 
     elif any(word in normalized for word in ("tour", "sécurité", "security", "inspection", "vendredi", "friday", "fissure", "béton")):
@@ -118,5 +124,20 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown ni texte additionnel."""
                 fields["Opérateur"] = "Pierre Leroy - Coordinateur"
             else:
                 fields["Opérateur"] = "Jean Dupont - Chef de chantier"
+
+    # Auto-fill date and time if not mentioned (for all templates)
+    now = datetime.now()
+
+    if "Date de découverte" in fields and not fields["Date de découverte"]:
+        fields["Date de découverte"] = now.strftime("%d/%m/%Y")
+
+    if "Heure de découverte" in fields and not fields["Heure de découverte"]:
+        fields["Heure de découverte"] = now.strftime("%H:%M")
+
+    if "Date" in fields and not fields["Date"]:
+        fields["Date"] = now.strftime("%d/%m/%Y")
+
+    if "Heure" in fields and not fields["Heure"]:
+        fields["Heure"] = now.strftime("%H:%M")
 
     return template, fields

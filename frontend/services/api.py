@@ -60,3 +60,15 @@ class BackendClient:
                 "autopilot": True,
             },
         )
+
+    def download_docx(self, fields: Dict[str, str], template_type: str = "probleme_decouverte") -> bytes:
+        """Download a DOCX report via `/api/report/download/docx`."""
+
+        url = self._url("/api/report/download/docx")
+        response = requests.post(
+            url,
+            json={"fields": fields, "template_type": template_type},
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.content
