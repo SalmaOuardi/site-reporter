@@ -5,7 +5,6 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from ..core.config import get_settings
 from ..models.schemas import (
     AutoPipelineRequest,
     AutoPipelineResponse,
@@ -88,8 +87,6 @@ async def download_docx(payload: DocxDownloadRequest) -> StreamingResponse:
             detail="At least one field is required to generate the DOCX.",
         )
 
-    # Get template path
-    settings = get_settings()
     template_path = Path(__file__).resolve().parents[2] / "app" / "assets" / "Template_incident.docx"
 
     if not template_path.exists():

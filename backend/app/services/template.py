@@ -7,14 +7,11 @@ from datetime import datetime
 from typing import Dict, Tuple
 
 from .llm import chat_completion
-from ..core.config import get_settings
 
 async def infer_template(transcript: str) -> Tuple[str, Dict[str, str]]:
     """Guess the template from keywords and let the LLM pull field values."""
 
     normalized = transcript.lower()
-    settings = get_settings()
-
     if any(word in normalized for word in ("problème", "problem", "incident", "souci", "défaillance", "panne", "fuite", "casse")):
         template = "probleme_decouverte"
         field_schema = {

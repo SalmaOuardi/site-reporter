@@ -3,14 +3,16 @@
 import asyncio
 import base64
 import sys
+from importlib import import_module
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 BACKEND_PATH = PROJECT_ROOT / "backend"
-sys.path.insert(0, str(BACKEND_PATH))
+if str(BACKEND_PATH) not in sys.path:
+    sys.path.insert(0, str(BACKEND_PATH))
 
-from app.services.llm import chat_completion
-from app.services.stt import transcribe_audio
+chat_completion = import_module("app.services.llm").chat_completion
+transcribe_audio = import_module("app.services.stt").transcribe_audio
 
 
 async def test_llm():
