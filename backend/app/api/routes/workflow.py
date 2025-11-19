@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from ..models.schemas import (
+from ...models.schemas import (
     AutoPipelineRequest,
     AutoPipelineResponse,
     DocxDownloadRequest,
@@ -16,12 +16,12 @@ from ..models.schemas import (
     TranscriptionRequest,
     TranscriptionResponse,
 )
-from ..services.docx_generator import generate_incident_docx
-from ..services.report import generate_report
-from ..services.stt import transcribe_audio
-from ..services.template import infer_template
+from ...services.docx_generator import generate_incident_docx
+from ...services.report import generate_report
+from ...services.stt import transcribe_audio
+from ...services.template import infer_template
 
-router = APIRouter(prefix="/api", tags=["workflow"])
+router = APIRouter(tags=["workflow"])
 
 
 @router.post("/transcribe", response_model=TranscriptionResponse)
@@ -87,7 +87,7 @@ async def download_docx(payload: DocxDownloadRequest) -> StreamingResponse:
             detail="At least one field is required to generate the DOCX.",
         )
 
-    template_path = Path(__file__).resolve().parents[2] / "app" / "assets" / "Template_incident.docx"
+    template_path = Path(__file__).resolve().parents[2] / "assets" / "Template_incident.docx"
 
     if not template_path.exists():
         raise HTTPException(

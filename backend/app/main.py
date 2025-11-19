@@ -2,8 +2,8 @@
 
 from fastapi import FastAPI
 
+from .api import api_router
 from .core.config import get_settings
-from .routers.pipeline import router as workflow_router
 
 
 def create_app() -> FastAPI:
@@ -18,7 +18,7 @@ def create_app() -> FastAPI:
 
         return {"status": "ok", "service": settings.project_name}
 
-    app.include_router(workflow_router)
+    app.include_router(api_router)
 
     return app
 
