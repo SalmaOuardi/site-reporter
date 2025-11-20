@@ -81,6 +81,24 @@ def load_demo_audio_bytes() -> Optional[bytes]:
     return None
 
 
+def resolve_audio_bytes(raw_audio: bytes) -> bytes:
+    """Return demo audio bytes when demo mode is on, otherwise original recording."""
+
+    if not DEMO_AUDIO_ENABLED:
+        return raw_audio
+
+    demo_audio = load_demo_audio_bytes()
+    if demo_audio:
+        st.info(":material/volume_up: Mode démonstration actif.")
+        return demo_audio
+
+    st.warning(
+        ":material/warning: Mode démonstration activé mais l'audio simulé est introuvable. "
+        "Utilisation de l'enregistrement réel."
+    )
+    return raw_audio
+
+
 def data_editor_rows(fields: Dict[str, str]) -> List[Dict[str, str]]:
     """Convert our field dict into `st.data_editor` rows."""
 
@@ -234,19 +252,7 @@ def capture_audio() -> Optional[bytes]:
 def handle_transcription(audio_bytes: bytes) -> None:
     """Send the recorded audio to the backend STT endpoint."""
 
-    effective_audio = audio_bytes
-    if DEMO_AUDIO_ENABLED:
-        demo_audio = load_demo_audio_bytes()
-        if demo_audio:
-            effective_audio = demo_audio
-            st.info(":material/volume_up: Mode démonstration actif.")
-        else:
-            st.warning(
-                ":material/warning: Mode démonstration activé mais l'audio simulé est introuvable. "
-                "Utilisation de l'enregistrement réel."
-            )
-
-    encoded = encode_audio(effective_audio)
+    encoded = encode_audio(resolve_audio_bytes(audio_bytes))
     try:
         with st.spinner(":material/autorenew: Transcription en cours avec GPT-4o-mini..."):
             response = client.transcribe(encoded, language=DEFAULT_LANGUAGE)
@@ -321,7 +327,7 @@ def handle_report_generation() -> None:
 def handle_auto_pipeline(audio_bytes: bytes) -> None:
     """Let the backend run STT → template → report in one go."""
 
-    encoded = encode_audio(audio_bytes)
+    encoded = encode_audio(resolve_audio_bytes(audio_bytes))
     try:
         with st.spinner(":material/bolt: Pipeline automatique en cours..."):
             response = client.run_auto_pipeline(encoded, language=DEFAULT_LANGUAGE)
