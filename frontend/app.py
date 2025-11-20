@@ -9,8 +9,12 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 import streamlit as st
+from dotenv import load_dotenv
 
 from services.api import BackendClient
+
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env", override=False)
 
 st.set_page_config(page_title="Rapporteur de Chantier", layout="wide", page_icon=":material/construction:")
 
@@ -235,7 +239,7 @@ def handle_transcription(audio_bytes: bytes) -> None:
         demo_audio = load_demo_audio_bytes()
         if demo_audio:
             effective_audio = demo_audio
-            st.info(":material/volume_up: Mode démonstration actif · audio chantier simulé utilisé.")
+            st.info(":material/volume_up: Mode démonstration actif.")
         else:
             st.warning(
                 ":material/warning: Mode démonstration activé mais l'audio simulé est introuvable. "

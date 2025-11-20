@@ -89,6 +89,21 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown ni texte additionnel."""
     if "Heure de découverte" in fields and not fields["Heure de découverte"]:
         fields["Heure de découverte"] = now.strftime("%H:%M")
 
+    if not fields.get("Nom du chantier"):
+        fields["Nom du chantier"] = "Y154.2433150000 – BEX Lucien Faure / Bd Daney"
+
+    if not fields.get("Emetteur du signalement"):
+        fields["Emetteur du signalement"] = "Valentin ALLANT"
+
+    if not fields.get("Adresse"):
+        fields["Adresse"] = "91 rue Lucien Faure 33000 Bordeaux"
+
+    if not fields.get("Niveau d'urgence"):
+        fields["Niveau d'urgence"] = "Haute"
+
+    if not fields.get("Personnes prévenues"):
+        fields["Personnes prévenues"] = "Arthur Brunet"
+
     if "Date" in fields and not fields["Date"]:
         fields["Date"] = now.strftime("%d/%m/%Y")
 

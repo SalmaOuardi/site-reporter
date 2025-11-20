@@ -5,6 +5,7 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 from typing import Dict
+import unicodedata
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -32,7 +33,22 @@ def _replace_generic_placeholders(text: str, fields: Dict[str, str], field_mappi
 def _normalize_label(text: str) -> str:
     """Normalize a label for matching (remove colon/spacing, lowercase)."""
 
-    return text.replace(":", "").strip().lower()
+    normalized = unicodedata.normalize("NFKC", text)
+    normalized = normalized.replace("’", "'")
+    normalized = normalized.replace(":", "")
+    normalized = normalized.replace("\xa0", " ")
+    return normalized.strip().lower()
+
+
+def _date_time_value(fields: Dict[str, str]) -> str:
+    """Combine date + time fields for the template row."""
+
+    date = fields.get("Date de découverte", "").strip()
+    time = fields.get("Heure de découverte", "").strip()
+
+    if date and time:
+        return f"{date} à {time}"
+    return date or time
 
 
 def _set_cell_shading(cell, fill: str) -> None:
@@ -116,6 +132,13 @@ def generate_incident_docx(fields: Dict[str, str], template_path: Path) -> bytes
             if len(cells) >= 2:
                 left_cell, right_cell = cells[0], cells[1]
                 left_label = _normalize_label(left_cell.text)
+
+                if "date et heure de la découverte" in left_label:
+                    right_cell.text = _date_time_value(fields)
+                    matched = True
+                    left_cell.text = _strip_placeholder(left_cell.text, "Date de découverte")
+                    left_cell.text = _strip_placeholder(left_cell.text, "Heure de découverte")
+                    continue
 
                 for template_field, extracted_field in field_mapping.items():
                     norm_field = template_field.lower()
