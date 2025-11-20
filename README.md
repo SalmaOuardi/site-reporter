@@ -27,6 +27,15 @@ echo "BACKEND_URL=http://localhost:8000" > .env
 uv sync
 ```
 
+### Demo audio override (optional)
+To always transcribe the bundled noisy clip instead of live mic input, add to `frontend/.env`:
+```bash
+echo "DEMO_AUDIO_MODE=true" >> .env
+# optional custom file
+# echo "DEMO_AUDIO_PATH=/full/path/to/audio.wav" >> .env
+```
+By default the app uses `frontend/assets/audio_noisy.wav`.
+
 ## Run
 ```bash
 # Terminal 1 – FastAPI

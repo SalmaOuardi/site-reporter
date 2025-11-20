@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import os
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -15,9 +17,17 @@ st.set_page_config(page_title="Rapporteur de Chantier", layout="wide", page_icon
 client = BackendClient()
 
 DEFAULT_LANGUAGE = "fr"
+INCIDENT_TEMPLATE_TYPE = "probleme_decouverte"
 MANUAL_MODE = "Avec validation humaine"
 AUTO_MODE = "Entièrement automatique"
 TRANSCRIPT_WIDGET_KEY = "transcript_editor"
+DEMO_AUDIO_ENABLED = os.getenv("DEMO_AUDIO_MODE", "false").lower() in {"1", "true", "yes", "on"}
+DEMO_AUDIO_PATH = Path(
+    os.getenv(
+        "DEMO_AUDIO_PATH",
+        Path(__file__).resolve().parent / "assets" / "audio_noisy.wav",
+    )
+)
 
 
 def init_state() -> None:
@@ -26,7 +36,7 @@ def init_state() -> None:
     defaults = {
         "mode": MANUAL_MODE,
         "transcript": "",
-        "template_type": "",
+        "template_type": INCIDENT_TEMPLATE_TYPE,
         "fields": {},
         "report_text": "",
         "audio_bytes": None,
@@ -49,6 +59,22 @@ def encode_audio(audio_bytes: bytes) -> str:
     """Turn raw audio bytes into the base64 payload FastAPI expects."""
 
     return base64.b64encode(audio_bytes).decode("utf-8")
+
+
+@lru_cache(maxsize=1)
+def load_demo_audio_bytes() -> Optional[bytes]:
+    """Load the noisy demo audio once if demo mode is enabled."""
+
+    if not DEMO_AUDIO_ENABLED:
+        return None
+
+    try:
+        return DEMO_AUDIO_PATH.read_bytes()
+    except FileNotFoundError:
+        st.error(f":material/error: Audio de démonstration introuvable: {DEMO_AUDIO_PATH}")
+    except Exception as exc:  # noqa: BLE001
+        st.error(f":material/error: Impossible de charger l'audio de démonstration: {exc}")
+    return None
 
 
 def data_editor_rows(fields: Dict[str, str]) -> List[Dict[str, str]]:
@@ -204,7 +230,19 @@ def capture_audio() -> Optional[bytes]:
 def handle_transcription(audio_bytes: bytes) -> None:
     """Send the recorded audio to the backend STT endpoint."""
 
-    encoded = encode_audio(audio_bytes)
+    effective_audio = audio_bytes
+    if DEMO_AUDIO_ENABLED:
+        demo_audio = load_demo_audio_bytes()
+        if demo_audio:
+            effective_audio = demo_audio
+            st.info(":material/volume_up: Mode démonstration actif · audio chantier simulé utilisé.")
+        else:
+            st.warning(
+                ":material/warning: Mode démonstration activé mais l'audio simulé est introuvable. "
+                "Utilisation de l'enregistrement réel."
+            )
+
+    encoded = encode_audio(effective_audio)
     try:
         with st.spinner(":material/autorenew: Transcription en cours avec GPT-4o-mini..."):
             response = client.transcribe(encoded, language=DEFAULT_LANGUAGE)
@@ -213,27 +251,41 @@ def handle_transcription(audio_bytes: bytes) -> None:
         return
     set_transcript_state(response["text"])
     st.toast("Transcription reçue.", icon=":material/done_all:")
-    st.rerun()  # refresh the UI so the transcript shows up
+    populate_fields_from_transcript(auto_trigger=True)
+    st.rerun()  # refresh the UI so the transcript + champs show up
 
 
-def handle_template_inference() -> None:
-    """Ask the backend to pick a template and prefill fields."""
+def populate_fields_from_transcript(auto_trigger: bool = False) -> bool:
+    """Use the transcript to fill the single incident template."""
 
     transcript = st.session_state.get("transcript", "").strip()
     if not transcript:
-        st.warning(":material/info: Veuillez d'abord générer ou coller une transcription.")
-        return
+        if not auto_trigger:
+            st.warning(":material/info: Ajoutez une transcription avant de remplir les champs.")
+        return False
+
+    spinner_label = (
+        ":material/table_chart: Pré-remplissage des champs du rapport..."
+        if auto_trigger
+        else ":material/auto_graph: Mise à jour des champs depuis la transcription..."
+    )
 
     try:
-        with st.spinner(":material/auto_graph: Analyse du type de rapport..."):
+        with st.spinner(spinner_label):
             response = client.infer_template(transcript)
     except Exception as exc:  # noqa: BLE001
-        st.error(f":material/error: Échec de l'analyse: {exc}")
-        return
-    st.session_state["template_type"] = response["template_type"]
-    st.session_state["fields"] = response["fields"]
-    st.toast(f"Template détecté: {response['template_type']}", icon=":material/insights:")
-    st.rerun()  # refresh the UI so the new table renders
+        st.error(f":material/error: Échec du pré-remplissage des champs: {exc}")
+        return False
+
+    st.session_state["template_type"] = response.get("template_type", INCIDENT_TEMPLATE_TYPE)
+    st.session_state["fields"] = response.get("fields", {})
+
+    icon = ":material/table_rows:"
+    message = "Champs du rapport prêts."
+    if not auto_trigger:
+        message = "Champs mis à jour depuis la transcription."
+    st.toast(message, icon=icon)
+    return True
 
 
 def handle_report_generation() -> None:
@@ -241,9 +293,11 @@ def handle_report_generation() -> None:
 
     template_type = st.session_state.get("template_type")
     fields = st.session_state.get("fields", {})
-    if not template_type or not fields:
-        st.warning(":material/info: Veuillez analyser le template et modifier les champs avant de générer.")
+    if not fields:
+        st.warning(":material/info: Veuillez remplir les champs du rapport avant de générer.")
         return
+
+    template_type = template_type or INCIDENT_TEMPLATE_TYPE
 
     try:
         with st.spinner(":material/article: Génération du rapport..."):
@@ -302,7 +356,7 @@ def show_report_preview(report_text: str) -> None:
     st.code(report_text, language="text")
 
     fields = st.session_state.get("fields", {})
-    template_type = st.session_state.get("template_type", "probleme_decouverte")
+    template_type = st.session_state.get("template_type", INCIDENT_TEMPLATE_TYPE)
 
     if not fields:
         st.warning(":material/info: Aucun champ disponible pour générer le document.")
@@ -342,18 +396,24 @@ def render_manual_workflow() -> None:
             set_transcript_state(new_transcript)
 
     with st.expander(
-        ":material/table_chart: Étape 2 · Template et Données Structurées",
+        ":material/table_chart: Étape 2 · Champs du Rapport",
         expanded=bool(st.session_state.get("transcript")),
     ):
         if not st.session_state.get("transcript"):
-            st.info("Ajoutez ou éditez une transcription avant d'analyser le template.")
+            st.info("Ajoutez ou éditez une transcription avant de remplir les champs.")
         else:
-            st.caption("Détectez automatiquement le bon template puis ajustez les champs.")
-            if st.button(":material/stacked_bar_chart: Analyser le type de rapport", use_container_width=True):
-                handle_template_inference()
+            st.caption(
+                "Les champs du template incident sont pré-remplis automatiquement à partir de la transcription. "
+                "Relancez l'extraction si vous modifiez le texte."
+            )
+            if st.button(
+                ":material/auto_graph: Re-remplir les champs depuis la transcription",
+                use_container_width=True,
+            ):
+                if populate_fields_from_transcript():
+                    st.rerun()
 
-            if st.session_state.get("template_type"):
-                st.info(f"**Template détecté:** {st.session_state['template_type']}")
+            if st.session_state.get("fields"):
                 rows = data_editor_rows(st.session_state.get("fields", {}))
                 edited = st.data_editor(
                     rows,
@@ -363,7 +423,7 @@ def render_manual_workflow() -> None:
                 )
                 st.session_state["fields"] = rows_to_fields_dict(edited)
             else:
-                st.info("Aucun template détecté pour l'instant.")
+                st.info("Les champs seront disponibles après transcription.")
 
     with st.expander(":material/description: Étape 3 · Générer le Rapport", expanded=bool(st.session_state.get("fields"))):
         if not st.session_state.get("fields"):

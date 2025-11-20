@@ -36,7 +36,7 @@ async def transcribe(payload: TranscriptionRequest) -> TranscriptionResponse:
 async def infer_template_route(
     payload: TemplateInferenceRequest,
 ) -> TemplateInferenceResponse:
-    """Pick the proper template and seed values based on the transcript."""
+    """Extract fields for the incident template based on the transcript."""
 
     transcript = payload.transcript.strip()
     if not transcript:
