@@ -10,7 +10,7 @@ ENV_FILE = BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
-    """Load everything we need from environment variables or .env."""
+    """Centralized configuration sourced from environment variables or .env."""
 
     azure_openai_key: str
     azure_endpoint: str = "https://draftspeechtotext.cognitiveservices.azure.com"

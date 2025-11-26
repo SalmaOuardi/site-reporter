@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from .llm import chat_completion
 
@@ -23,6 +24,47 @@ INCIDENT_FIELD_SCHEMA: Dict[str, str] = {
     "Niveau d'urgence": "niveau d'urgence (Faible/Moyen/Élevé/Critique)",
     "Personnes prévenues": "liste des personnes ou services informés",
 }
+
+
+def _extract_year_from_transcript(transcript: str) -> Optional[int]:
+    """Return the latest 4-digit year mentioned in the transcript, if any."""
+
+    matches = re.findall(r"\b(20\d{2})\b", transcript)
+    if not matches:
+        return None
+
+    try:
+        return int(matches[-1])
+    except ValueError:
+        return None
+
+
+def _normalize_date_field(transcript: str, date_str: str, now: datetime) -> str:
+    """Favor the transcript's year (or current year) when none is spoken."""
+
+    if not date_str:
+        return date_str
+
+    parts = date_str.strip().split("/")
+    if len(parts) != 3:
+        return date_str
+
+    try:
+        day, month, year = (int(part) for part in parts)
+    except ValueError:
+        return date_str
+
+    transcript_year = _extract_year_from_transcript(transcript)
+    target_year = transcript_year or now.year
+
+    if year != target_year:
+        try:
+            normalized = datetime(target_year, month, day)
+        except ValueError:
+            return date_str
+        return normalized.strftime("%d/%m/%Y")
+
+    return date_str
 
 
 async def infer_template(transcript: str) -> Tuple[str, Dict[str, str]]:
@@ -82,6 +124,14 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown ni texte additionnel."""
 
     # Auto-fill date and time if not mentioned (for all templates)
     now = datetime.now()
+
+    if "Date de découverte" in fields and fields["Date de découverte"]:
+        fields["Date de découverte"] = _normalize_date_field(
+            transcript, fields["Date de découverte"], now
+        )
+
+    if "Date" in fields and fields["Date"]:
+        fields["Date"] = _normalize_date_field(transcript, fields["Date"], now)
 
     if "Date de découverte" in fields and not fields["Date de découverte"]:
         fields["Date de découverte"] = now.strftime("%d/%m/%Y")

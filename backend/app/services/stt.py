@@ -14,9 +14,20 @@ from ..core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+STT_TEMPERATURE = 0.0  # Keep transcription deterministic
+
 
 async def transcribe_audio(audio_b64: str, language: Optional[str] = None) -> str:
-    """Send the recorded audio to GPT-4o-mini-transcribe and return plain text."""
+    """Send audio to Azure STT and return text.
+
+    Args:
+        audio_b64: Base64-encoded WAV bytes from the frontend recorder.
+        language: Optional BCP-47 language tag (defaults to settings.default_language).
+
+    Returns:
+        Plain transcript text produced by the `stt_deployment_name` model at the
+        fixed temperature defined by ``STT_TEMPERATURE``.
+    """
     audio_bytes = base64.b64decode(audio_b64)
     settings = get_settings()
 
@@ -37,6 +48,7 @@ async def transcribe_audio(audio_b64: str, language: Optional[str] = None) -> st
             model=settings.stt_deployment_name,
             file=audio_file,
             language=language,
+            temperature=STT_TEMPERATURE,
         )
 
         text = getattr(response, "text", None)
