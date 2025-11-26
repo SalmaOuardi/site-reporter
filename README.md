@@ -2,6 +2,13 @@
 
 Voice-first assistant for chantier reports: Streamlit records French memos, Azure GPT‑4o-mini-transcribe handles STT, a Mistral deployment extracts structured fields, and FastAPI returns an editable report plus DOCX download.
 
+## Architecture (what lives where)
+- Frontend: Streamlit app (`frontend/app.py`) with a REST client (`frontend/services/api.py`) that calls the backend.
+- Backend: FastAPI (`backend/app/main.py`) exposes the workflow routes in `backend/app/api/routes/workflow.py`.
+- Services: STT wrapper (`backend/app/services/stt.py`), LLM wrapper (`backend/app/services/llm.py`), template extraction and date normalization (`backend/app/services/template.py`), report rendering (`backend/app/services/report.py`), DOCX generation (`backend/app/services/docx_generator.py`).
+- Config: central settings in `backend/app/core/config.py`; STT temperature is a fixed constant in `backend/app/services/stt.py` (kept at 0.0 for deterministic transcripts).
+- Schemas: Pydantic payloads live in `backend/app/models/schemas.py`.
+
 ## Requirements
 - Python 3.11+
 - [uv](https://github.com/astral-sh/uv) (manages virtualenvs)
@@ -57,6 +64,13 @@ Base URL `http://localhost:8000/api`
 - `POST /report/download/docx`
 
 Health probe: `GET /health`.
+
+## End-to-end flow
+1) Streamlit records audio and can optionally swap in demo audio (`frontend/assets/audio_noisy.wav`).
+2) Audio is base64-encoded and POSTed to `/api/transcribe`; Azure GPT-4o-mini-transcribe returns text at temperature 0.0.
+3) `/api/report/template` asks the Mistral deployment to extract fields; missing dates default to “today” but keep transcript-stated years.
+4) Users can edit fields, then call `/api/report/generate` for plaintext or `/api/report/download/docx` for a Word file.
+5) `/api/pipeline/auto` chains all steps without human validation.
 
 ## Tests
 ```bash

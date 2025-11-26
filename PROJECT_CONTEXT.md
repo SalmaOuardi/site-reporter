@@ -28,13 +28,15 @@ site-reporter/
 │       │   └── config.py           # Azure OpenAI configuration
 │       ├── models/
 │       │   └── schemas.py          # Pydantic models
-│       ├── routers/
-│       │   └── pipeline.py         # API endpoints
+│       ├── api/
+│       │   └── routes/
+│       │       └── workflow.py     # API endpoints for STT → template → report
 │       └── services/
 │           ├── llm.py              # Azure Mistral LLM service
-│           ├── stt.py              # Azure STT service
-│           ├── template.py         # LLM-powered field extraction
-│           └── report.py           # French report generation
+│           ├── stt.py              # Azure STT service (temperature fixed at 0.0)
+│           ├── template.py         # LLM-powered field extraction + date normalization
+│           ├── report.py           # French report generation
+│           └── docx_generator.py   # Word template filling
 │
 ├── frontend/
 │   ├── app.py                      # Streamlit app (French UI)
@@ -132,6 +134,7 @@ AZURE_ENDPOINT="https://draftspeechtotext.cognitiveservices.azure.com"
 # Speech-to-Text Configuration
 STT_DEPLOYMENT_NAME="gpt-4o-mini-transcribe"
 STT_API_VERSION="2025-03-01-preview"
+# Temperature is hard-coded to 0.0 in backend/app/services/stt.py for determinism
 DEFAULT_LANGUAGE="fr"
 
 # LLM Configuration (Mistral)
