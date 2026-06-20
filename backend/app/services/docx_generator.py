@@ -20,7 +20,9 @@ def _strip_placeholder(text: str, field: str) -> str:
     return text.replace(f"{{{field}}}", "").replace(f"[{field}]", "").strip()
 
 
-def _replace_generic_placeholders(text: str, fields: Dict[str, str], field_mapping: Dict[str, str]) -> str:
+def _replace_generic_placeholders(
+    text: str, fields: Dict[str, str], field_mapping: Dict[str, str]
+) -> str:
     """Fallback replacement for any loose placeholders outside the main table layout."""
 
     for template_field, extracted_field in field_mapping.items():
@@ -145,14 +147,21 @@ def generate_incident_docx(fields: Dict[str, str], template_path: Path) -> bytes
                     value = fields.get(extracted_field, "")
 
                     # Match by label presence in the left column or explicit placeholder
-                    if norm_field in left_label or f"{{{template_field}}}" in left_cell.text or f"[{template_field}]" in left_cell.text:
+                    if (
+                        norm_field in left_label
+                        or f"{{{template_field}}}" in left_cell.text
+                        or f"[{template_field}]" in left_cell.text
+                    ):
                         left_cell.text = _strip_placeholder(left_cell.text, template_field)
                         right_cell.text = value
                         matched = True
                         break
 
                     # If the placeholder lives in the right cell, swap it for the value
-                    if f"{{{template_field}}}" in right_cell.text or f"[{template_field}]" in right_cell.text:
+                    if (
+                        f"{{{template_field}}}" in right_cell.text
+                        or f"[{template_field}]" in right_cell.text
+                    ):
                         left_cell.text = _strip_placeholder(left_cell.text, template_field)
                         right_cell.text = _strip_placeholder(right_cell.text, template_field)
                         right_cell.text = value
