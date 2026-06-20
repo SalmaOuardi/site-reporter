@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, Optional
 
-
 TEMPLATE_HEADERS = {
     "probleme_decouverte": "RAPPORT D'INCIDENT - Problème Découvert",
     "tour_securite": "RAPPORT DE SÉCURITÉ - Tour de Chantier",
@@ -19,9 +18,7 @@ def generate_report(
 ) -> str:
     """Assemble a French report body from the selected template and data."""
 
-    header = TEMPLATE_HEADERS.get(
-        template_type, f"RAPPORT DE CHANTIER - {template_type.upper()}"
-    )
+    header = TEMPLATE_HEADERS.get(template_type, f"RAPPORT DE CHANTIER - {template_type.upper()}")
 
     now = datetime.now()
     timestamp = now.strftime("%d/%m/%Y à %H:%M")

@@ -106,6 +106,7 @@ async def download_docx(payload: DocxDownloadRequest) -> StreamingResponse:
 
     # Return as downloadable file
     from io import BytesIO
+
     buffer = BytesIO(docx_bytes)
     buffer.seek(0)
 
